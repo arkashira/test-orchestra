@@ -1,39 +1,36 @@
 import json
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Dict
 
 @dataclass
-class AuthCredentials:
-    username: str
-    password: str
+class AuthToken:
+    token: str
+    expires_at: datetime
 
 class AuthManager:
-    def __init__(self, credentials_file: str = 'credentials.json'):
-        self.credentials_file = credentials_file
-        self.credentials: Dict[str, AuthCredentials] = self.load_credentials()
+    def __init__(self):
+        self.tokens: Dict[str, AuthToken] = {}
 
-    def load_credentials(self) -> Dict[str, AuthCredentials]:
-        try:
-            with open(self.credentials_file, 'r') as f:
-                data = json.load(f)
-                return {key: AuthCredentials(**value) for key, value in data.items()}
-        except FileNotFoundError:
-            return {}
+    def get_token(self, flow: str) -> str:
+        if flow not in self.tokens:
+            raise ValueError(f"Flow {flow} not supported")
+        token = self.tokens[flow]
+        if token.expires_at < datetime.now():
+            self.renew_token(flow)
+        return self.tokens[flow].token
 
-    def save_credentials(self) -> None:
-        data = {key: {'username': value.username, 'password': value.password} for key, value in self.credentials.items()}
-        with open(self.credentials_file, 'w') as f:
-            json.dump(data, f)
+    def renew_token(self, flow: str) -> None:
+        if flow == "oauth2":
+            self.tokens[flow] = AuthToken(token="new_oauth2_token", expires_at=datetime.now() + timedelta(hours=1))
+        elif flow == "jwt":
+            self.tokens[flow] = AuthToken(token="new_jwt_token", expires_at=datetime.now() + timedelta(hours=1))
+        elif flow == "api_key":
+            self.tokens[flow] = AuthToken(token="new_api_key_token", expires_at=datetime.now() + timedelta(hours=1))
 
-    def add_credentials(self, key: str, username: str, password: str) -> None:
-        self.credentials[key] = AuthCredentials(username, password)
-        self.save_credentials()
+    def add_flow(self, flow: str, token: str, expires_at: datetime) -> None:
+        self.tokens[flow] = AuthToken(token=token, expires_at=expires_at)
 
-    def get_credentials(self, key: str) -> AuthCredentials:
-        return self.credentials.get(key)
-
-    def authenticate(self, key: str, username: str, password: str) -> bool:
-        credentials = self.get_credentials(key)
-        if credentials and credentials.username == username and credentials.password == password:
-            return True
-        return False
+    def remove_flow(self, flow: str) -> None:
+        if flow in self.tokens:
+            del self.tokens[flow]

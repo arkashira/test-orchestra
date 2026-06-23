@@ -1,31 +1,36 @@
-from auth_manager import AuthManager, AuthCredentials
+from auth_manager import AuthManager, AuthToken
+from datetime import datetime, timedelta
 
-def test_load_credentials():
-    manager = AuthManager()
-    assert manager.load_credentials() == {}
+def test_get_token():
+    auth_manager = AuthManager()
+    auth_manager.add_flow("oauth2", "token", datetime.now() + timedelta(hours=1))
+    assert auth_manager.get_token("oauth2") == "token"
 
-def test_save_credentials():
-    manager = AuthManager()
-    manager.add_credentials('test', 'username', 'password')
-    assert manager.get_credentials('test').username == 'username'
-    assert manager.get_credentials('test').password == 'password'
+def test_renew_token():
+    auth_manager = AuthManager()
+    auth_manager.add_flow("oauth2", "token", datetime.now() - timedelta(hours=1))
+    auth_manager.renew_token("oauth2")
+    assert auth_manager.get_token("oauth2") != "token"
 
-def test_authenticate():
-    manager = AuthManager()
-    manager.add_credentials('test', 'username', 'password')
-    assert manager.authenticate('test', 'username', 'password') == True
-    assert manager.authenticate('test', 'wrong_username', 'password') == False
-    assert manager.authenticate('test', 'username', 'wrong_password') == False
+def test_add_flow():
+    auth_manager = AuthManager()
+    auth_manager.add_flow("jwt", "token", datetime.now() + timedelta(hours=1))
+    assert auth_manager.get_token("jwt") == "token"
 
-def test_get_credentials():
-    manager = AuthManager()
-    manager.add_credentials('test', 'username', 'password')
-    credentials = manager.get_credentials('test')
-    assert credentials.username == 'username'
-    assert credentials.password == 'password'
+def test_remove_flow():
+    auth_manager = AuthManager()
+    auth_manager.add_flow("api_key", "token", datetime.now() + timedelta(hours=1))
+    auth_manager.remove_flow("api_key")
+    try:
+        auth_manager.get_token("api_key")
+        assert False
+    except ValueError:
+        assert True
 
-def test_add_credentials():
-    manager = AuthManager()
-    manager.add_credentials('test', 'username', 'password')
-    assert manager.get_credentials('test').username == 'username'
-    assert manager.get_credentials('test').password == 'password'
+def test_get_token_unsupported_flow():
+    auth_manager = AuthManager()
+    try:
+        auth_manager.get_token("unsupported_flow")
+        assert False
+    except ValueError:
+        assert True
